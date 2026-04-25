@@ -38,6 +38,7 @@ const app = createApp({
   ingestionService,
   analyticsService,
   workspaceService,
+  eventRepo,
   sessionRepo,
   dashboardRepo,
 });

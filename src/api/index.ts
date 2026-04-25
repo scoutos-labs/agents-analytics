@@ -7,6 +7,7 @@ import type { AnalyticsService } from '../services/analytics-service.js';
 import type { WorkspaceService } from '../services/workspace-service.js';
 import type { SessionPort } from '../ports/session.js';
 import type { DashboardPort } from '../ports/dashboard.js';
+import type { EventPort } from '../ports/events.js';
 
 import { createIdentityRouter } from './identity.js';
 import { createSessionRouter } from './session.js';
@@ -22,6 +23,7 @@ export interface ApiDeps {
   ingestionService: IngestionService;
   analyticsService: AnalyticsService;
   workspaceService: WorkspaceService;
+  eventRepo: EventPort;
   sessionRepo: SessionPort;
   dashboardRepo: DashboardPort;
 }
@@ -40,7 +42,11 @@ export function createApp(deps: ApiDeps) {
   app.route('/v1/identity', createIdentityRouter(deps.identityService));
   app.route('/v1/session', createSessionRouter(deps.sessionService));
   app.route('/v1/events', createEventsRouter(deps.ingestionService, deps.sessionRepo));
-  app.route('/v1/analytics', createAnalyticsRouter(deps.analyticsService, deps.sessionRepo));
+  app.route('/v1/analytics', createAnalyticsRouter({
+    analyticsService: deps.analyticsService,
+    eventRepo: deps.eventRepo,
+    sessionRepo: deps.sessionRepo,
+  }));
   app.route('/v1/dashboards', createDashboardRouter(deps.dashboardRepo, deps.sessionRepo));
   app.route('/v1/workspaces', createWorkspaceRouter(deps.workspaceService, deps.sessionRepo));
   app.route('/v1', createOpenApiRouter());

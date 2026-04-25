@@ -1,5 +1,6 @@
 import type { EventPort } from '../../ports/events.js';
 import type { TelemetryEvent, TimeSeriesPoint, AnalyticsQuery } from '../../core/types.js';
+import type { DiscoverRequest, DiscoverResult } from '../../services/analytics-service.js';
 import { db as defaultDb } from './db.js';
 import type Database from 'better-sqlite3';
 
@@ -39,6 +40,59 @@ export class SqliteEventRepo implements EventPort {
     return this.queryEntityTimeSeries(q, intervalSeconds, fromIso, toIso);
   }
 
+  async discover(req: DiscoverRequest): Promise<DiscoverResult> {
+    let entityIds: string[] = [];
+    
+    if (req.workspaceId) {
+      const rows = this.db.prepare('SELECT entity_id FROM workspace_members WHERE workspace_id = ?').all(req.workspaceId) as any[];
+      entityIds = rows.map(r => r.entity_id);
+    } else if (req.entityId) {
+      entityIds = [req.entityId];
+    }
+
+    if (entityIds.length === 0) {
+      return { entities: [], eventNames: [], dimensions: {}, timeRange: { earliest: '', latest: '' }, totalEvents: 0 };
+    }
+
+    const placeholders = entityIds.map(() => '?').join(',');
+
+    // Total events
+    const totalRow = this.db.prepare(`SELECT COUNT(*) as c FROM events WHERE entity_id IN (${placeholders})`).get(...entityIds) as any;
+    const totalEvents = totalRow.c;
+
+    // Event names
+    const nameRows = this.db.prepare(`SELECT event_name, COUNT(*) as c FROM events WHERE entity_id IN (${placeholders}) GROUP BY event_name ORDER BY c DESC`).all(...entityIds) as any[];
+    const eventNames = nameRows.map(r => ({ name: r.event_name, count: r.c }));
+
+    // Time range
+    const timeRow = this.db.prepare(`SELECT MIN(event_time) as earliest, MAX(event_time) as latest FROM events WHERE entity_id IN (${placeholders})`).get(...entityIds) as any;
+    const timeRange = { earliest: timeRow.earliest || '', latest: timeRow.latest || '' };
+
+    // Entities with counts
+    const entityRows = this.db.prepare(`SELECT entity_id, COUNT(*) as c FROM events WHERE entity_id IN (${placeholders}) GROUP BY entity_id`).all(...entityIds) as any[];
+    const entities = entityRows.map(r => ({ id: r.entity_id, eventCount: r.c }));
+
+    // Dimensions - sample a few recent events and extract keys
+    const sampleRows = this.db.prepare(`SELECT dimensions FROM events WHERE entity_id IN (${placeholders}) ORDER BY event_time DESC LIMIT 500`).all(...entityIds) as any[];
+    const dims = new Map<string, Set<string>>();
+    for (const row of sampleRows) {
+      try {
+        const parsed = JSON.parse(row.dimensions);
+        for (const [key, val] of Object.entries(parsed)) {
+          if (!dims.has(key)) dims.set(key, new Set());
+          dims.get(key)!.add(String(val));
+        }
+      } catch {}
+    }
+
+    const dimensions: Record<string, string[]> = {};
+    for (const [key, set] of dims) {
+      dimensions[key] = Array.from(set).slice(0, 20); // Limit cardinality
+    }
+
+    return { entities, eventNames, dimensions, timeRange, totalEvents };
+  }
+
   private queryEntityTimeSeries(q: AnalyticsQuery, intervalSeconds: number, fromIso: string, toIso: string): TimeSeriesPoint[] {
     if (q.groupBy) {
       const colPath = `$.${q.groupBy}`;
@@ -68,15 +122,11 @@ export class SqliteEventRepo implements EventPort {
   }
 
   private queryWorkspaceTimeSeries(q: AnalyticsQuery, intervalSeconds: number, fromIso: string, toIso: string): TimeSeriesPoint[] {
-    // Get all entity IDs in the workspace
-    const entityRows = this.db.prepare(
-      'SELECT entity_id FROM workspace_members WHERE workspace_id = ?'
-    ).all(q.workspaceId) as any[];
+    const entityRows = this.db.prepare('SELECT entity_id FROM workspace_members WHERE workspace_id = ?').all(q.workspaceId) as any[];
     const entityIds = entityRows.map(r => r.entity_id);
 
     if (entityIds.length === 0) return [];
 
-    // Build IN clause
     const placeholders = entityIds.map(() => '?').join(',');
 
     if (q.groupBy) {

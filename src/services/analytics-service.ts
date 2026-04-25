@@ -1,5 +1,5 @@
 import type { EventPort } from '../ports/events.js';
-import type { TimeSeriesPoint, AnalyticsQuery } from '../core/types.js';
+import type { TimeSeriesPoint, AnalyticsQuery, TelemetryEvent } from '../core/types.js';
 
 export interface TimeseriesRequest {
   entityId?: string;
@@ -10,6 +10,19 @@ export interface TimeseriesRequest {
   intervalSeconds?: number;
   aggregation?: 'count' | 'sum' | 'avg';
   groupBy?: string;
+}
+
+export interface DiscoverRequest {
+  entityId?: string;
+  workspaceId?: string;
+}
+
+export interface DiscoverResult {
+  entities: { id: string; eventCount: number }[];
+  eventNames: { name: string; count: number }[];
+  dimensions: Record<string, string[]>;
+  timeRange: { earliest: string; latest: string };
+  totalEvents: number;
 }
 
 export class AnalyticsService {
@@ -30,5 +43,9 @@ export class AnalyticsService {
 
     const points = await this.eventRepo.queryTimeSeries(query);
     return { points, granularitySeconds: interval };
+  }
+
+  async discover(req: DiscoverRequest): Promise<DiscoverResult> {
+    return this.eventRepo.discover(req);
   }
 }
