@@ -1,0 +1,332 @@
+openapi: 3.0.3
+info:
+  title: AgentSig Analytics API
+  description: |
+    Agent-native telemetry and analytics platform. Entities with Ed25519 keypairs register,
+    obtain session tokens, and submit events. Events are aggregated into time-series and
+    visualized in embeddable dashboards.
+  version: 0.1.0
+  contact:
+    name: AgentSig
+servers:
+  - url: http://localhost:3000/v1
+    description: Local development
+paths:
+  /health:
+    get:
+      summary: Health check
+      tags: [System]
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  time: { type: string, format: date-time }
+
+  /identity/register:
+    post:
+      summary: Register a new entity
+      tags: [Identity]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [public_key, label, metadata, signature, timestamp]
+              properties:
+                public_key: { type: string, description: 'PEM or base64 Ed25519 public key' }
+                label: { type: string, description: 'Human-readable label' }
+                metadata: { type: object, additionalProperties: { type: string } }
+                signature: { type: string, format: base64, description: 'Signature of the canonical registration message' }
+                timestamp: { type: string, format: date-time }
+      responses:
+        '201':
+          description: Entity registered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entityId: { type: string }
+        '400':
+          description: Invalid signature, stale timestamp, or duplicate key
+
+  /identity/{entityId}:
+    get:
+      summary: Get entity details
+      tags: [Identity]
+      parameters:
+        - in: path
+          name: entityId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Entity found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string }
+                  label: { type: string }
+                  metadata: { type: object }
+                  created_at: { type: string, format: date-time }
+                  revoked_at: { type: string, format: date-time, nullable: true }
+        '404':
+          description: Entity not found
+
+  /session:
+    post:
+      summary: Start a new session
+      tags: [Session]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [entity_id, nonce, timestamp, signature]
+              properties:
+                entity_id: { type: string }
+                nonce: { type: string, description: 'One-time nonce to prevent replay' }
+                timestamp: { type: string, format: date-time }
+                signature: { type: string, format: base64, description: 'Signature of entity_id:nonce:timestamp' }
+                ttl_seconds: { type: integer, default: 3600, maximum: 86400 }
+                scope: { type: array, items: { type: string } }
+      responses:
+        '201':
+          description: Session created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { type: string, description: 'Bearer token' }
+                  expiresAt: { type: string, format: date-time }
+        '400':
+          description: Invalid entity, signature, or stale timestamp
+
+  /session/renew:
+    post:
+      summary: Renew an existing session
+      tags: [Session]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string }
+      responses:
+        '200':
+          description: New session token issued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { type: string }
+                  expiresAt: { type: string, format: date-time }
+        '400':
+          description: Session not refreshable or not found
+
+  /events:
+    post:
+      summary: Submit telemetry events
+      tags: [Events]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                events:
+                  type: array
+                  items:
+                    type: object
+                    required: [timestamp, name]
+                    properties:
+                      timestamp: { type: string, format: date-time }
+                      name: { type: string }
+                      value: { type: number, default: 1 }
+                      dimensions: { type: object, additionalProperties: { type: string } }
+      responses:
+        '200':
+          description: Events accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accepted: { type: integer }
+        '401':
+          description: Missing or invalid session token
+
+  /analytics/timeseries:
+    get:
+      summary: Query time-series aggregates
+      tags: [Analytics]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: event_name
+          required: true
+          schema: { type: string }
+        - in: query
+          name: from
+          required: true
+          schema: { type: string, format: date-time }
+        - in: query
+          name: to
+          required: true
+          schema: { type: string, format: date-time }
+        - in: query
+          name: interval
+          schema: { type: integer, default: 3600 }
+        - in: query
+          name: aggregation
+          schema: { type: string, enum: [count, sum, avg], default: count }
+        - in: query
+          name: group_by
+          schema: { type: string, description: 'Dimension key to group by' }
+      responses:
+        '200':
+          description: Time-series data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  points:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        bucket: { type: string }
+                        value: { type: number }
+                        group: { type: string }
+                  granularitySeconds: { type: integer }
+
+  /dashboards:
+    post:
+      summary: Create a dashboard config
+      tags: [Dashboards]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: token
+          schema: { type: string }
+          description: Optional query-param auth for browser forms
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, widgets, time_range]
+              properties:
+                title: { type: string }
+                widgets:
+                  type: array
+                  items:
+                    type: object
+                    required: [type, title, query]
+                    properties:
+                      type: { type: string, enum: [timeseries_line, metric_card] }
+                      title: { type: string }
+                      query:
+                        type: object
+                        required: [eventName, aggregation]
+                        properties:
+                          eventName: { type: string }
+                          aggregation: { type: string, enum: [count, sum, avg] }
+                          groupBy: { type: string }
+                time_range:
+                  oneOf:
+                    - type: object
+                      properties:
+                        preset: { type: string }
+                    - type: object
+                      properties:
+                        from: { type: string, format: date-time }
+                        to: { type: string, format: date-time }
+                refresh_interval_seconds: { type: integer, default: 60 }
+      responses:
+        '201':
+          description: Dashboard created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dashboard_id: { type: string }
+                  signed_url: { type: string }
+                  created_at: { type: string, format: date-time }
+
+  /dashboards/{id}:
+    get:
+      summary: Get dashboard config
+      tags: [Dashboards]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Dashboard config
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardConfig'
+        '404':
+          description: Dashboard not found
+
+  /view/{id}:
+    get:
+      summary: Render dashboard WebView (HTML)
+      tags: [Dashboards]
+      parameters:
+        - in: query
+          name: token
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Dashboard SPA HTML
+          content:
+            text/html:
+              schema: { type: string }
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    DashboardConfig:
+      type: object
+      properties:
+        id: { type: string }
+        entityId: { type: string }
+        title: { type: string }
+        widgets: { type: array }
+        timeRange: { type: object }
+        refreshIntervalSeconds: { type: integer }
+        createdAt: { type: string, format: date-time }

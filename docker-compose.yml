@@ -1,0 +1,15 @@
+services:
+  agentsig:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - DB_PATH=/data/agentsig.db
+      - PORT=3000
+      - PUBLIC_URL=http://localhost:3000
+    volumes:
+      - agentsig-data:/data
+    restart: unless-stopped
+
+volumes:
+  agentsig-data:
