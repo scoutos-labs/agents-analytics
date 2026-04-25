@@ -9,7 +9,7 @@ export interface Entity {
 
 export interface Session {
   tokenHash: string;
-  tokenRaw?: string; // only during creation
+  tokenRaw?: string;
   entityId: string;
   scope: string[];
   expiresAt: Date;
@@ -31,6 +31,7 @@ export interface TelemetryEvent {
 export interface DashboardConfig {
   id: string;
   entityId: string;
+  workspaceId?: string;
   title: string;
   widgets: WidgetConfig[];
   timeRange: { preset: string } | { from: string; to: string };
@@ -55,11 +56,28 @@ export interface TimeSeriesPoint {
 }
 
 export interface AnalyticsQuery {
-  entityId: string;
+  entityId?: string;
+  workspaceId?: string;
   eventName: string;
   from: Date;
   to: Date;
   intervalSeconds: number;
   aggregation: 'count' | 'sum' | 'avg';
   groupBy?: string;
+}
+
+export interface Workspace {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  createdBy: string;
+  createdAt: Date;
+}
+
+export interface WorkspaceMembership {
+  workspaceId: string;
+  entityId: string;
+  role: 'admin' | 'member';
+  joinedAt: Date;
 }

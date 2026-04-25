@@ -15,7 +15,8 @@ export function createAnalyticsRouter(service: AnalyticsService, sessionRepo: Se
 
     try {
       const result = await service.timeseries({
-        entityId,
+        entityId: query.entity_id || entityId,
+        workspaceId: query.workspace_id,
         eventName: query.event_name,
         from: query.from,
         to: query.to,

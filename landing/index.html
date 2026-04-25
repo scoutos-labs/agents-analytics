@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgentSig — Telemetry & Analytics for Autonomous Agents</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/landing/style.css">
+</head>
+<body>
+  <nav>
+    <div class="nav-inner">
+      <a href="/" class="logo">AgentSig</a>
+      <div class="nav-links">
+        <a href="#how-it-works">How it works</a>
+        <a href="#features">Features</a>
+        <a href="/v1/docs">API Docs</a>
+        <a href="https://github.com/scoutos-labs/agents-analytics" class="github-link">GitHub →</a>
+      </div>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <div class="hero-inner">
+      <div class="badge">⚡ Built for autonomous agents</div>
+      <h1>Analytics for agents that run on their own.</h1>
+      <p class="hero-sub">
+        AgentSig is a telemetry platform where any autonomous agent — bots, scrapers, workflows — registers with an Ed25519 keypair, streams structured events, and gets real-time dashboards. No passwords. No OAuth. Just cryptographic identity and data.
+      </p>
+      <div class="hero-cta">
+        <a href="#how-it-works" class="cta-primary">Learn how it works</a>
+        <a href="/v1/docs" class="cta-secondary">Explore API</a>
+      </div>
+      <div class="hero-code">
+        <div class="code-tabs">
+          <span>Register</span>
+          <span>Session</span>
+          <span>Events</span>
+        </div>
+        <pre><code># Any agent with a keypair can join
+POST /v1/identity/register
+{
+  "public_key": "MCowBQYDK2VwAyEA...",
+  "signature": "ed25519signature...",
+  "label": "invoice-bot-prod"
+}
+
+# Get a session token (valid 1h)
+POST /v1/session
+{ "entity_id": "ent_7f3a", "signature": "..." }
+
+# Stream events in batches
+POST /v1/events
+{ "events": [
+  { "timestamp": "2026-04-27T12:00:00Z",
+    "name": "tool.invoke",
+    "value": 1,
+    "dimensions": { "tool": "web_scrape", "status": "success" }}
+]}</code></pre>
+      </div>
+    </div>
+  </header>
+
+  <section class="workspaces" id="workspaces">
+    <div class="section-inner">
+      <div class="section-header">
+        <p class="eyebrow">Organizations</p>
+        <h2>One workspace. Many agents. Unified analytics.</h2>
+        <p>Group your agents into workspaces. Every agent in a workspace streams into the same telemetry lake. You get org-level dashboards that aggregate across the whole fleet — and per-agent drilldowns when you need them.</p>
+      </div>
+      <div class="feature-grid">
+        <div class="feature-card">
+          <div class="feature-icon">🏢</div>
+          <h3>Create a Workspace</h3>
+          <p>A workspace is an isolated tenant. Create one for each team, product, or customer. All data stays scoped.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🔗</div>
+          <h3>Link Agents</h3>
+          <p>Register agents with their Ed25519 keypairs, then link them to a workspace. Agents inherit workspace access automatically.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📊</div>
+          <h3>Fleet Dashboards</h3>
+          <p>Aggregate counts, latencies, and error rates across every agent in the workspace. See the forest and the trees.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="how-it-works" id="how-it-works">
+    <div class="section-inner">
+      <div class="section-header">
+        <p class="eyebrow">How it works</p>
+        <h2>Three steps to agent-native telemetry.</h2>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">01</div>
+          <h3>Generate an Ed25519 keypair</h3>
+          <p>Every agent carries its own identity. No central user database, no password resets. Generate keys in a TPM, secure enclave, or environment variable. You own the keys.</p>
+          <pre class="code-block">const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519', {
+  publicKeyEncoding: { type: 'spki', format: 'pem' },
+  privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+});</pre>
+        </div>
+        <div class="step">
+          <div class="step-num">02</div>
+          <h3>Sign once, stream forever</h3>
+          <p>Sign a registration challenge to prove key ownership. Get back an entity ID. Then sign a session challenge to get a short-lived bearer token. From there, fire events at full speed — no per-request crypto.</p>
+          <pre class="code-block">// POST /v1/session
+const signature = sign(`${entityId}:${nonce}:${timestamp}`, privateKey);
+// Returns: { token: "sess_...", expiresAt: "..." }
+</pre>
+        </div>
+        <div class="step">
+          <div class="step-num">03</div>
+          <h3>Create dashboards from events</h3>
+          <p>Define widgets pointing at event names and dimensions. AgentSig rolls up time-series on demand. Embed the signed URL in any WebView, iframe, or headless browser.</p>
+          <pre class="code-block">// POST /v1/dashboards
+{
+  "title": "Agent Overview",
+  "widgets": [{
+    "type": "timeseries_line",
+    "query": { "eventName": "tool.invoke", "aggregation": "count", "groupBy": "tool" }
+  }]
+}
+// Returns: { "signed_url": "http://.../view/dash_...?token=..." }</pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="features" id="features">
+    <div class="section-inner">
+      <div class="section-header">
+        <p class="eyebrow">Features</p>
+        <h2>Privacy-first telemetry. Built for scale.</h2>
+      </div>
+      <div class="feature-grid three">
+        <div class="feature-card">
+          <div class="feature-icon">🔐</div>
+          <h3>Cryptographic Identity</h3>
+          <p>Ed25519 keypairs instead of passwords. Agents prove identity, receive session tokens, and stream events without human-in-the-loop.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">⚡</div>
+          <h3>Session Tokens</h3>
+          <p>Sign once to bootstrap, then use cheap bearer tokens for high-throughput streaming. Renewable and TTL-bounded.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📈</div>
+          <h3>Time-Series Analytics</h3>
+          <p>SQLite-native rollups with JSON dimension extraction. Count, sum, avg, and group-by. Query in milliseconds.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🖼</div>
+          <h3>Embeddable Dashboards</h3>
+          <p>Signed URLs that carry access. Drop an iframe into your admin panel. No login sessions, no cookie banners.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🔌</div>
+          <h3>Ports & Adapters</h3>
+          <p>Swap SQLite for Postgres or ClickHouse without touching the API. Interface-driven architecture.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🚀</div>
+          <h3>Open Source</h3>
+          <p>Full source on GitHub. MIT-style license. Self-host on Railway, Render, or Kubernetes in minutes.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta-band">
+    <div class="cta-inner">
+      <h2>Ready to instrument your agents?</h2>
+      <p>Clone the repo, run the server, and stream your first event in under 5 minutes.</p>
+      <a href="https://github.com/scoutos-labs/agents-analytics" class="cta-primary large">View on GitHub →</a>
+    </div>
+  </section>
+
+  <footer>
+    <div class="footer-inner">
+      <div>AgentSig — Telemetry for autonomous agents.</div>
+      <div class="footer-links">
+        <a href="https://github.com/scoutos-labs/agents-analytics">GitHub</a>
+        <a href="/v1/openapi.yaml">OpenAPI</a>
+        <a href="/v1/docs">API Docs</a>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

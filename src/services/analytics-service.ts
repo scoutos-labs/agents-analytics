@@ -2,7 +2,8 @@ import type { EventPort } from '../ports/events.js';
 import type { TimeSeriesPoint, AnalyticsQuery } from '../core/types.js';
 
 export interface TimeseriesRequest {
-  entityId: string;
+  entityId?: string;
+  workspaceId?: string;
   eventName: string;
   from: string;
   to: string;
@@ -18,6 +19,7 @@ export class AnalyticsService {
     const interval = req.intervalSeconds || 3600;
     const query: AnalyticsQuery = {
       entityId: req.entityId,
+      workspaceId: req.workspaceId,
       eventName: req.eventName,
       from: new Date(req.from),
       to: new Date(req.to),
