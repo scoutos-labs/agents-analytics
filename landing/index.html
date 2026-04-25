@@ -27,7 +27,7 @@
       <div class="badge">⚡ Built for autonomous agents</div>
       <h1>Analytics for agents that run on their own.</h1>
       <p class="hero-sub">
-        AgentSig is a telemetry platform where any autonomous agent — bots, scrapers, workflows — registers with an Ed25519 keypair, streams structured events, and gets real-time dashboards. No passwords. No OAuth. Just cryptographic identity and data.
+        AgentSig is a telemetry platform where any autonomous agent — bots, scrapers, workflows — registers with an Ed25519 keypair, streams structured events, and gets real-time dashboards. No passwords. No OAuth. Just cryptographic identity and data. Solo or as a fleet.
       </p>
       <div class="hero-cta">
         <a href="#how-it-works" class="cta-primary">Learn how it works</a>
@@ -37,7 +37,7 @@
         <div class="code-tabs">
           <span>Register</span>
           <span>Session</span>
-          <span>Events</span>
+          <span>Discover</span>
         </div>
         <pre><code># Any agent with a keypair can join
 POST /v1/identity/register
@@ -50,6 +50,10 @@ POST /v1/identity/register
 # Get a session token (valid 1h)
 POST /v1/session
 { "entity_id": "ent_7f3a", "signature": "..." }
+
+# Query what your fleet is doing
+GET /v1/analytics/discover?workspace_id=ws_ops
+# → { "eventNames": [...], "dimensions": {...} }
 
 # Stream events in batches
 POST /v1/events
@@ -94,7 +98,7 @@ POST /v1/events
     <div class="section-inner">
       <div class="section-header">
         <p class="eyebrow">How it works</p>
-        <h2>Three steps to agent-native telemetry.</h2>
+        <h2>Four steps to agent-native telemetry.</h2>
       </div>
       <div class="steps">
         <div class="step">
@@ -117,11 +121,23 @@ const signature = sign(`${entityId}:${nonce}:${timestamp}`, privateKey);
         </div>
         <div class="step">
           <div class="step-num">03</div>
-          <h3>Create dashboards from events</h3>
-          <p>Define widgets pointing at event names and dimensions. AgentSig rolls up time-series on demand. Embed the signed URL in any WebView, iframe, or headless browser.</p>
+          <h3>Discover what is happening</h3>
+          <p>Query the discovery endpoint to see what event names and dimensions your agents are sending. No more guesswork when designing dashboards — let the data tell you what to visualize.</p>
+          <pre class="code-block">// GET /v1/analytics/discover?workspace_id=ws_ops
+{
+  "eventNames": [{"name":"tool.invoke","count":3200}],
+  "dimensions": {"tool":["scrape","api"],"region":["us-east","eu-west"]},
+  "totalEvents": 4000
+}</pre>
+        </div>
+        <div class="step">
+          <div class="step-num">04</div>
+          <h3>Create dashboards from discovered data</h3>
+          <p>Build dashboards programmatically from the discovery response, or define them manually. Workspace dashboards aggregate across all member agents. Embed the signed URL in any WebView, iframe, or headless browser.</p>
           <pre class="code-block">// POST /v1/dashboards
 {
-  "title": "Agent Overview",
+  "title": "Fleet Overview",
+  "workspace_id": "ws_ops",
   "widgets": [{
     "type": "timeseries_line",
     "query": { "eventName": "tool.invoke", "aggregation": "count", "groupBy": "tool" }
@@ -151,9 +167,14 @@ const signature = sign(`${entityId}:${nonce}:${timestamp}`, privateKey);
           <p>Sign once to bootstrap, then use cheap bearer tokens for high-throughput streaming. Renewable and TTL-bounded.</p>
         </div>
         <div class="feature-card">
-          <div class="feature-icon">📈</div>
-          <h3>Time-Series Analytics</h3>
-          <p>SQLite-native rollups with JSON dimension extraction. Count, sum, avg, and group-by. Query in milliseconds.</p>
+          <div class="feature-icon">🔍</div>
+          <h3>Auto-Discovery</h3>
+          <p>Ask the system what's happening. The discover endpoint tells you what events and dimensions exist so you can generate dashboards from live data.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🏢</div>
+          <h3>Workspaces & Orgs</h3>
+          <p>Isolate agents into workspaces. Aggregate analytics across the whole fleet. Add members with admin or member roles.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">🖼</div>
@@ -161,14 +182,9 @@ const signature = sign(`${entityId}:${nonce}:${timestamp}`, privateKey);
           <p>Signed URLs that carry access. Drop an iframe into your admin panel. No login sessions, no cookie banners.</p>
         </div>
         <div class="feature-card">
-          <div class="feature-icon">🔌</div>
-          <h3>Ports & Adapters</h3>
-          <p>Swap SQLite for Postgres or ClickHouse without touching the API. Interface-driven architecture.</p>
-        </div>
-        <div class="feature-card">
           <div class="feature-icon">🚀</div>
           <h3>Open Source</h3>
-          <p>Full source on GitHub. MIT-style license. Self-host on Railway, Render, or Kubernetes in minutes.</p>
+          <p>Full source on GitHub. Self-host on Railway, Render, or Kubernetes in minutes. Swap SQLite for Postgres when you need to scale.</p>
         </div>
       </div>
     </div>
