@@ -30,6 +30,7 @@ export async function fetchTimeseries(params: {
   interval?: string;
   aggregation?: string;
   group_by?: string;
+  workspace_id?: string;
 }) {
   const query = new URLSearchParams(params as Record<string, string>);
   return apiFetch(`/v1/analytics/timeseries?${query.toString()}`);

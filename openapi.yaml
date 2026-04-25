@@ -4,8 +4,9 @@ info:
   description: |
     Agent-native telemetry and analytics platform. Entities with Ed25519 keypairs register,
     obtain session tokens, and submit events. Events are aggregated into time-series and
-    visualized in embeddable dashboards.
-  version: 0.1.0
+    visualized in embeddable dashboards. Supports organization workspaces for fleet-wide
+    visibility.
+  version: 0.2.0
   contact:
     name: AgentSig
 servers:
@@ -201,6 +202,12 @@ paths:
         - in: query
           name: group_by
           schema: { type: string, description: 'Dimension key to group by' }
+        - in: query
+          name: entity_id
+          schema: { type: string, description: 'Optional: filter to single entity' }
+        - in: query
+          name: workspace_id
+          schema: { type: string, description: 'Optional: aggregate across all workspace agents' }
       responses:
         '200':
           description: Time-series data
@@ -239,6 +246,7 @@ paths:
               required: [title, widgets, time_range]
               properties:
                 title: { type: string }
+                workspace_id: { type: string, description: 'Optional: create workspace-scoped dashboard' }
                 widgets:
                   type: array
                   items:
@@ -297,6 +305,132 @@ paths:
         '404':
           description: Dashboard not found
 
+  /workspaces:
+    post:
+      summary: Create a workspace
+      tags: [Workspaces]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, slug]
+              properties:
+                name: { type: string }
+                slug: { type: string, description: 'URL-friendly unique identifier' }
+                description: { type: string }
+      responses:
+        '201':
+          description: Workspace created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  workspaceId: { type: string }
+        '400':
+          description: Slug already in use or creator not found
+    get:
+      summary: List workspaces for authenticated entity
+      tags: [Workspaces]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Workspaces list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  workspaces:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Workspace'
+
+  /workspaces/{workspaceId}:
+    get:
+      summary: Get workspace details
+      tags: [Workspaces]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: workspaceId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Workspace details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workspace'
+        '404':
+          description: Workspace not found
+
+  /workspaces/{workspaceId}/members:
+    post:
+      summary: Add member to workspace
+      tags: [Workspaces]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: workspaceId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [entity_id]
+              properties:
+                entity_id: { type: string }
+                role: { type: string, enum: [admin, member], default: member }
+      responses:
+        '201':
+          description: Member added
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+        '400':
+          description: Admin access required or entity not found
+    get:
+      summary: List workspace members
+      tags: [Workspaces]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: workspaceId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Members list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  members:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        entity_id: { type: string }
+                        role: { type: string }
+                        joined_at: { type: string, format: date-time }
+
   /view/{id}:
     get:
       summary: Render dashboard WebView (HTML)
@@ -325,8 +459,18 @@ components:
       properties:
         id: { type: string }
         entityId: { type: string }
+        workspaceId: { type: string, nullable: true }
         title: { type: string }
         widgets: { type: array }
         timeRange: { type: object }
         refreshIntervalSeconds: { type: integer }
+        createdAt: { type: string, format: date-time }
+    Workspace:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        slug: { type: string }
+        description: { type: string }
+        createdBy: { type: string }
         createdAt: { type: string, format: date-time }

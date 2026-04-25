@@ -19,6 +19,7 @@ export function createDashboardRouter(dashboardRepo: DashboardPort, sessionRepo:
     const config = {
       id: `dash_${randomToken().slice(0, 12)}`,
       entityId,
+      workspaceId: body.workspace_id || undefined,
       title: body.title || 'Dashboard',
       widgets: body.widgets || [],
       timeRange: body.time_range || { preset: 'last_24h' },

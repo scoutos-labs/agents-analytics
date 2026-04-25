@@ -3,12 +3,14 @@ import { SqliteIdentityRepo } from '../src/adapters/sqlite/identity-repo.js';
 import { SqliteSessionRepo } from '../src/adapters/sqlite/session-repo.js';
 import { SqliteEventRepo } from '../src/adapters/sqlite/event-repo.js';
 import { SqliteDashboardRepo } from '../src/adapters/sqlite/dashboard-repo.js';
+import { SqliteWorkspaceRepo } from '../src/adapters/sqlite/workspace-repo.js';
 import type { IdentityPort } from '../src/ports/identity.js';
 import type { SessionPort } from '../src/ports/session.js';
 import type { EventPort } from '../src/ports/events.js';
 import type { DashboardPort } from '../src/ports/dashboard.js';
 import { generateKeypair } from '../src/adapters/crypto/ed25519.js';
 import type { Entity } from '../src/core/types.js';
+import { WorkspacePort } from '../src/ports/workspace.js';
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS entities (
@@ -43,8 +45,26 @@ CREATE TABLE IF NOT EXISTS events (
 CREATE TABLE IF NOT EXISTS dashboards (
   id TEXT PRIMARY KEY,
   entity_id TEXT NOT NULL,
+  workspace_id TEXT,
   config TEXT NOT NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS workspaces (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  slug TEXT NOT NULL UNIQUE,
+  description TEXT NOT NULL DEFAULT '',
+  created_by TEXT NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS workspace_members (
+  workspace_id TEXT NOT NULL,
+  entity_id TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'member',
+  joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (workspace_id, entity_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_events_entity_time ON events(entity_id, event_time);
@@ -52,6 +72,7 @@ CREATE INDEX IF NOT EXISTS idx_events_name_time ON events(event_name, event_time
 CREATE INDEX IF NOT EXISTS idx_events_entity_name_time ON events(entity_id, event_name, event_time);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
 CREATE INDEX IF NOT EXISTS idx_dashboards_entity ON dashboards(entity_id);
+CREATE INDEX IF NOT EXISTS idx_dashboards_workspace ON dashboards(workspace_id);
 `;
 
 export interface TestDb {
@@ -60,6 +81,7 @@ export interface TestDb {
   sessionRepo: SessionPort;
   eventRepo: EventPort;
   dashboardRepo: DashboardPort;
+  workspaceRepo: WorkspacePort;
   cleanup: () => void;
 }
 
@@ -75,6 +97,7 @@ export function createTestDb(): TestDb {
     sessionRepo: new SqliteSessionRepo(db),
     eventRepo: new SqliteEventRepo(db),
     dashboardRepo: new SqliteDashboardRepo(db),
+    workspaceRepo: new SqliteWorkspaceRepo(db),
     cleanup: () => db.close(),
   };
 }

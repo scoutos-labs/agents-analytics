@@ -35,10 +35,12 @@
         to = new Date(timeRange.to);
       }
 
+      const workspaceId = dashboard.workspaceId || undefined;
+
       for (let i = 0; i < (dashboard.widgets || []).length; i++) {
         const w = dashboard.widgets[i];
         if (w.type === 'timeseries_line' || w.type === 'metric_card') {
-          const params = {
+          const params: any = {
             event_name: w.query.eventName,
             from: from.toISOString(),
             to: to.toISOString(),
@@ -46,6 +48,8 @@
             aggregation: w.query.aggregation || 'count',
             group_by: w.query.groupBy || '',
           };
+          if (workspaceId) params.workspace_id = workspaceId;
+
           const data = await fetchTimeseries(params);
           widgetData.set(i, data);
         }
@@ -74,7 +78,13 @@
   <div style="padding: 1.5rem; max-width: 1200px; margin: 0 auto;">
     <header style="margin-bottom: 1.5rem; border-bottom: 1px solid #27272a; padding-bottom: 1rem;">
       <h1 style="margin: 0; font-size: 1.5rem;">{dashboard?.title || 'Dashboard'}</h1>
-      <div style="color: #a1a1aa; font-size: 0.875rem;">Entity: {dashboard?.entityId}</div>
+      <div style="color: #a1a1aa; font-size: 0.875rem;">
+        {#if dashboard?.workspaceId}
+          Workspace: {dashboard.workspaceId}
+        {:else}
+          Entity: {dashboard?.entityId}
+        {/if}
+      </div>
     </header>
 
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 1.5rem;">
