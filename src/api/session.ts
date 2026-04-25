@@ -1,8 +1,11 @@
 import { Hono } from 'hono';
 import type { SessionService } from '../services/session-service.js';
+import { sessionRateLimit } from '../middleware/rate-limit.js';
 
 export function createSessionRouter(service: SessionService) {
   const app = new Hono();
+
+  app.use(sessionRateLimit);
 
   app.post('/', async (c) => {
     const body = await c.req.json();

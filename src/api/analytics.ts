@@ -2,11 +2,11 @@ import { Hono } from 'hono';
 import type { AnalyticsService } from '../services/analytics-service.js';
 import type { SessionPort } from '../ports/session.js';
 import { createAuthMiddleware } from '../middleware/auth.js';
-import type { EventPort } from '../ports/events.js';
+import { sanitizeError } from '../middleware/error-handler.js';
 
 export interface AnalyticsDeps {
   analyticsService: AnalyticsService;
-  eventRepo: EventPort;
+  eventRepo: any;
   sessionRepo: SessionPort;
 }
 
@@ -33,7 +33,7 @@ export function createAnalyticsRouter(deps: AnalyticsDeps) {
       });
       return c.json(result);
     } catch (err: any) {
-      return c.json({ error: err.message }, 400);
+      return c.json({ error: sanitizeError(err) }, 500);
     }
   });
 
@@ -48,7 +48,7 @@ export function createAnalyticsRouter(deps: AnalyticsDeps) {
       });
       return c.json(result);
     } catch (err: any) {
-      return c.json({ error: err.message }, 400);
+      return c.json({ error: sanitizeError(err) }, 500);
     }
   });
 
