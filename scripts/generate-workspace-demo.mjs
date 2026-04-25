@@ -1,11 +1,15 @@
 #!/usr/bin/env node
 /**
  * Generate a full workspace demo with multiple agents.
- * Run: node scripts/generate-workspace-demo.mjs
+ * Run: PORT=4444 node scripts/generate-workspace-demo.mjs
+ *
+ * Environment:
+ *   PORT        - Server port (default: 3000)
+ *   API_BASE    - Full base URL (default: http://localhost:${PORT})
  *
  * Creates:
  *  - 1 admin entity
- *  - 1 workspace ("Operations Team")  
+ *  - 1 workspace ("Operations Team")
  *  - 5 agent entities (invoice-bot, scraper, rpa-bot, security-auditor, compliance-checker)
  *  - ~4,000 events across all agents
  *  - 1 workspace-level fleet dashboard
@@ -14,8 +18,8 @@
 import crypto from 'crypto';
 import http from 'http';
 
-const API_BASE = process.env.API_BASE || 'http://localhost:3000';
-const PORT = process.env.AGENTSIG_PORT || '3000';
+const API_BASE = process.env.API_BASE || `http://localhost:${PORT}`;
+const PORT = process.env.PORT || '3000';
 
 function request(path, opts = {}) {
   return new Promise((resolve, reject) => {
