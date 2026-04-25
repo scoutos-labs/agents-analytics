@@ -4,13 +4,16 @@ import { resolve } from 'path';
 import type { SessionPort } from '../ports/session.js';
 import type { DashboardPort } from '../ports/dashboard.js';
 import { createAuthMiddleware } from '../middleware/auth.js';
+import { bodySizeLimit } from '../middleware/body-size.js';
 import { randomToken } from '../adapters/crypto/ed25519.js';
+import { sanitizeError } from '../middleware/error-handler.js';
 
 export function createDashboardRouter(dashboardRepo: DashboardPort, sessionRepo: SessionPort) {
   const app = new Hono();
   const auth = createAuthMiddleware(sessionRepo);
 
   app.use(auth);
+  app.use(bodySizeLimit());
 
   app.post('/', async (c) => {
     const entityId = c.get('entityId') as string;
@@ -40,9 +43,13 @@ export function createDashboardRouter(dashboardRepo: DashboardPort, sessionRepo:
   });
 
   app.get('/:id', async (c) => {
-    const cfg = await dashboardRepo.findById(c.req.param('id'));
-    if (!cfg) return c.json({ error: 'Not found' }, 404);
-    return c.json(cfg);
+    try {
+      const cfg = await dashboardRepo.findById(c.req.param('id'));
+      if (!cfg) return c.json({ error: 'Not found' }, 404);
+      return c.json(cfg);
+    } catch (err: any) {
+      return c.json({ error: sanitizeError(err) }, 500);
+    }
   });
 
   return app;

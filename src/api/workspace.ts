@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import type { WorkspaceService } from '../services/workspace-service.js';
 import { createAuthMiddleware } from '../middleware/auth.js';
+import { sanitizeError } from '../middleware/error-handler.js';
 import type { SessionPort } from '../ports/session.js';
 
 export function createWorkspaceRouter(workspaceService: WorkspaceService, sessionRepo: SessionPort) {
@@ -32,14 +33,18 @@ export function createWorkspaceRouter(workspaceService: WorkspaceService, sessio
       const workspaces = await workspaceService.listForEntity(entityId);
       return c.json({ workspaces });
     } catch (err: any) {
-      return c.json({ error: err.message }, 400);
+      return c.json({ error: sanitizeError(err) }, 500);
     }
   });
 
   app.get('/:id', async (c) => {
-    const ws = await workspaceService.getWorkspace(c.req.param('id'));
-    if (!ws) return c.json({ error: 'Not found' }, 404);
-    return c.json(ws);
+    try {
+      const ws = await workspaceService.getWorkspace(c.req.param('id'));
+      if (!ws) return c.json({ error: 'Not found' }, 404);
+      return c.json(ws);
+    } catch (err: any) {
+      return c.json({ error: sanitizeError(err) }, 500);
+    }
   });
 
   app.get('/:id/members', async (c) => {
@@ -47,7 +52,7 @@ export function createWorkspaceRouter(workspaceService: WorkspaceService, sessio
       const members = await workspaceService.getMembers(c.req.param('id'));
       return c.json({ members });
     } catch (err: any) {
-      return c.json({ error: err.message }, 400);
+      return c.json({ error: sanitizeError(err) }, 500);
     }
   });
 
