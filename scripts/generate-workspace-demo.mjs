@@ -18,8 +18,8 @@
 import crypto from 'crypto';
 import http from 'http';
 
-const API_BASE = process.env.API_BASE || `http://localhost:${PORT}`;
 const PORT = process.env.PORT || '3000';
+const API_BASE = process.env.API_BASE || `http://localhost:${PORT}`;
 
 function request(path, opts = {}) {
   return new Promise((resolve, reject) => {
